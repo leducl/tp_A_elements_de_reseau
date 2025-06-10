@@ -1,7 +1,7 @@
 import socket
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client.connect(("localhost", 63000))
+client.connect(("172.16.21.90", 63000))
 
 while True:
     message = input("Votre message (ou 'fin' pour terminer): ")
