@@ -1,0 +1,103 @@
+Étape 1 - Connexion minimale
+Q1 : La socket côté serveur est bloquante principalement lors des appels à :
+
+accept() (en attente d'une nouvelle connexion)
+
+recv() (en attente de données du client)
+
+Q2 : Si le client se connecte avant le serveur :
+
+Le client reçoit une erreur ConnectionRefusedError
+
+Le serveur ne peut pas accepter une connexion qui n'existe pas encore
+
+Q3 : Différence entre bind() et listen() :
+
+bind() : Associe la socket à une adresse IP et un port spécifiques
+
+listen() : Active l'écoute des connexions entrantes avec une file d'attente
+
+Étape 2 - Serveur Echo
+Q1 : La boucle est nécessaire pour :
+
+Maintenir la connexion active après le premier message
+
+Permettre plusieurs échanges successifs sans réétablir la connexion
+
+Q2 : Si on oublie msg == "fin" :
+
+La connexion reste active indéfiniment
+
+Le client doit fermer brutalement (CTRL+C) ou le serveur reste bloqué
+
+Q3 : Le serveur peut envoyer plusieurs réponses :
+
+Oui, mais uniquement en réponse à des messages clients (modèle requête-réponse)
+
+Pas d'envoi spontané dans cette implémentation
+
+Étape 3 - Serveur multi-clients simple
+Q1 : Après une déconnexion client :
+
+Le serveur reste actif grâce à la boucle principale
+
+Il retourne à accept() pour de nouvelles connexions
+
+Q2 : Modification nécessaire :
+
+Rien à changer, la structure actuelle le permet déjà
+
+La boucle externe while True gère les connexions successives
+
+Q3 : Clients en parallèle :
+
+Impossible dans cette version (traitement séquentiel)
+
+Nécessiterait des threads (voir étape 7)
+
+Étape 4 - Messagerie interactive 1:1
+Q1 : Synchronisation des échanges :
+
+Le protocole est bloquant par nature (recv()/send())
+
+Chaque partie attend alternativement un message
+
+Q2 : Version non bloquante :
+
+Utiliser settimeout() sur les sockets
+
+Ou implémenter avec select() pour du multiplexing
+
+Q3 : Fermeture propre :
+
+Convenir d'un mot-clé ("fin", "/quit")
+
+Fermer les sockets dans un bloc finally
+
+Étape 5 - Calculatrice en réseau
+Q1 : Risques de eval() :
+
+Exécution de code arbitraire (injection)
+
+Solution : validation stricte de l'input avec regex
+
+Q2 : Gestion des erreurs :
+
+Bloc try/except comme dans l'exemple
+
+Renvoyer un message d'erreur clair au client
+
+Étape 6 - Mini-protocole
+Q1 : Avantages du /commande :
+
+Standardisation des échanges
+
+Détection facile du type de message
+
+Extensibilité (ajout de nouvelles commandes)
+
+Q2 : Distinction des messages :
+
+Parsing du préfixe (split sur le premier espace)
+
+Structure conditionnelle (if/elif) pour le routage
