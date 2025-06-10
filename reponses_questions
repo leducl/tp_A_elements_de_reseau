@@ -1,103 +1,65 @@
 Étape 1 - Connexion minimale
-Q1 : La socket côté serveur est bloquante principalement lors des appels à :
+Q1 : À quel moment la socket côté serveur est-elle bloquante ?
+La socket est bloquante lors des appels à :
+serveur.accept() (attente d’une nouvelle connexion)
+conn.recv() (attente de données du client)
 
-accept() (en attente d'une nouvelle connexion)
+Q2 : Que se passe-t-il si le client se connecte avant que le serveur ne soit prêt ?
+Le client reçoit une erreur ConnectionRefusedError (ou "Connexion refusée" sous Linux/Windows), car le port n’est pas encore en écoute.
 
-recv() (en attente de données du client)
-
-Q2 : Si le client se connecte avant le serveur :
-
-Le client reçoit une erreur ConnectionRefusedError
-
-Le serveur ne peut pas accepter une connexion qui n'existe pas encore
-
-Q3 : Différence entre bind() et listen() :
-
-bind() : Associe la socket à une adresse IP et un port spécifiques
-
-listen() : Active l'écoute des connexions entrantes avec une file d'attente
+Q3 : Quelle est la différence entre bind() et listen() ?
+bind() : Associe la socket à une adresse IP (ex: 0.0.0.0) et un port (ex: 63000).
+listen() : Active l’écoute des connexions entrantes et définit la taille de la file d’attente (ex: listen(1) pour 1 connexion en attente max).
 
 Étape 2 - Serveur Echo
-Q1 : La boucle est nécessaire pour :
+Q1 : Pourquoi faut-il une boucle dans le serveur ?
+Pour maintenir la connexion active après le premier message et permettre des échanges multiples sans avoir à redémarrer le serveur.
 
-Maintenir la connexion active après le premier message
+Q2 : Que se passe-t-il si on oublie de tester msg == "fin" ?
+La boucle devient infinie : le client doit fermer brutalement (CTRL+C) ou le serveur reste bloqué sur recv() indéfiniment.
 
-Permettre plusieurs échanges successifs sans réétablir la connexion
-
-Q2 : Si on oublie msg == "fin" :
-
-La connexion reste active indéfiniment
-
-Le client doit fermer brutalement (CTRL+C) ou le serveur reste bloqué
-
-Q3 : Le serveur peut envoyer plusieurs réponses :
-
-Oui, mais uniquement en réponse à des messages clients (modèle requête-réponse)
-
-Pas d'envoi spontané dans cette implémentation
+Q3 : Est-ce que le serveur peut envoyer plusieurs réponses d’affilée ?
+Non, pas dans cette implémentation. Le serveur ne peut envoyer qu’une réponse par message reçu (modèle requête-réponse synchrone).
 
 Étape 3 - Serveur multi-clients simple
-Q1 : Après une déconnexion client :
+Q1 : Le serveur peut-il rester actif après une déconnexion client ?
+Oui, grâce à la boucle externe while True qui retourne à accept() après chaque conn.close().
 
-Le serveur reste actif grâce à la boucle principale
+Q2 : Que faut-il modifier pour accepter plusieurs clients à la suite ?
+Rien, la structure actuelle le permet déjà. La boucle externe gère les connexions successives.
 
-Il retourne à accept() pour de nouvelles connexions
-
-Q2 : Modification nécessaire :
-
-Rien à changer, la structure actuelle le permet déjà
-
-La boucle externe while True gère les connexions successives
-
-Q3 : Clients en parallèle :
-
-Impossible dans cette version (traitement séquentiel)
-
-Nécessiterait des threads (voir étape 7)
+Q3 : Peut-on imaginer accepter des clients en parallèle ?
+Oui, en utilisant des threads ou select() pour du multiplexing.
 
 Étape 4 - Messagerie interactive 1:1
-Q1 : Synchronisation des échanges :
+Q1 : Comment s’assurer que les deux côtés ne parlent pas en même temps ?
+Le protocole est naturellement synchronisé par input() (côté client) et recv() (côté serveur), qui bloquent l’exécution en attente d’entrée.
 
-Le protocole est bloquant par nature (recv()/send())
+Q2 : Peut-on rendre cet échange non bloquant ? Comment ?
+Oui, avec :
+socket.settimeout() pour limiter le temps d’attente
+select.select() pour surveiller plusieurs sockets simultanément
 
-Chaque partie attend alternativement un message
-
-Q2 : Version non bloquante :
-
-Utiliser settimeout() sur les sockets
-
-Ou implémenter avec select() pour du multiplexing
-
-Q3 : Fermeture propre :
-
-Convenir d'un mot-clé ("fin", "/quit")
-
-Fermer les sockets dans un bloc finally
+Q3 : Quelle est la meilleure façon de quitter proprement la communication ?
+Envoyer un message conventionnel (exemple /quit)
+Fermer la socket dans un bloc finally pour garantir la libération des ressources.
 
 Étape 5 - Calculatrice en réseau
-Q1 : Risques de eval() :
+Q1 : Quels sont les risques d’utiliser eval() ?
+Injection de code.
 
-Exécution de code arbitraire (injection)
+Q2 : Comment renvoyer une erreur sans faire planter le serveur ?
+Utiliser un bloc try/except comme dans l’exemple :
+try:
+    result = eval(expression)
+except Exception as e:
+    conn.send(f"Erreur: {e}".encode())
 
-Solution : validation stricte de l'input avec regex
-
-Q2 : Gestion des erreurs :
-
-Bloc try/except comme dans l'exemple
-
-Renvoyer un message d'erreur clair au client
-
-Étape 6 - Mini-protocole
-Q1 : Avantages du /commande :
-
+Étape 6 - Vers un mini-protocole
+Q1 : Pourquoi structurer les messages avec /commande ?
 Standardisation des échanges
-
 Détection facile du type de message
+Extensibilité (ajout de nouvelles commandes sans casser le protocole).
 
-Extensibilité (ajout de nouvelles commandes)
-
-Q2 : Distinction des messages :
-
-Parsing du préfixe (split sur le premier espace)
-
-Structure conditionnelle (if/elif) pour le routage
+Q2 : Comment distinguer facilement les types de messages côté serveur ?
+En découpant le message sur le premier espace
